@@ -9,7 +9,6 @@ import java.util.HashSet;
 import java.util.Set;
 
 public class WikiClient {
-
     public static final String WIKI = "/wiki/";
     public static final String EN_WIKI_URL = "https://en.wikipedia.org" + WIKI;
 
