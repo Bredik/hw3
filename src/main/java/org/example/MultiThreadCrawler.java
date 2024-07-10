@@ -2,18 +2,21 @@ package org.example;
 
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.lang.String.join;
 
 public class MultiThreadCrawler {
-    private final ExecutorService executor = Executors.newFixedThreadPool(2);
-    private final ExecutorService executor1 = Executors.newFixedThreadPool(2);
+    private final ExecutorService executor = Executors.newFixedThreadPool(1000);
+    private AtomicInteger attempt = new AtomicInteger(0);
+    private AtomicLong time = new AtomicLong(System.currentTimeMillis());
 
     public static void main(String[] args) throws Exception {
         MultiThreadCrawler crawler = new MultiThreadCrawler();
 
         long startTime = System.nanoTime();
-        String result = crawler.find("British Empire", "Iron", 2, 5, TimeUnit.MINUTES);
+        String result = crawler.find("British Empire", "Iron", 20, 5, TimeUnit.MINUTES);
         long finishTime = TimeUnit.SECONDS.convert(System.nanoTime() - startTime, TimeUnit.NANOSECONDS);
 
         System.out.println("Took " + finishTime + " seconds, result is: " + result);
@@ -45,12 +48,19 @@ public class MultiThreadCrawler {
             }
 
             var futures = new ArrayList<Future<Node>>();
-            var chekDeep = new ArrayList<Future<Boolean>>();
 
             futures.add(executor.submit(() -> {
                 Node node = searchQueue.poll();
                 System.out.println("Get page: " + node.title + " Thread: " + Thread.currentThread().getName());
-                Set<String> links = client.getByTitle(node.title);
+
+                Set<String> links = null;
+                try {
+                    links = client.getByTitle(node.title);
+                } catch (Exception e) {
+                    checkPeriod(time);
+                    Thread.sleep(2000);
+                }
+
                 if (links.isEmpty()) {
                     //pageNotFound
                     return new Node();
@@ -82,6 +92,22 @@ public class MultiThreadCrawler {
 
         }
         return new Node();
+    }
+
+    //Метод проверяет насколько часто нам вики выдает ошибку
+    //если это случилось три раза с периодичностью меньше двух секунд, то следует прекратить выполнения поиска
+    private void checkPeriod(AtomicLong time) {
+        var now = System.currentTimeMillis();
+        var diff = now - time.get();
+        if (diff < 2000) {
+            if (attempt.incrementAndGet() >= 3) {
+                executor.shutdownNow();
+                throw new RuntimeException("Слишком часто вики выдает ошибку");
+            }
+        } else {
+            attempt.set(0);
+        }
+        time.set(System.currentTimeMillis());
     }
 
     private String getResult(Node result) {

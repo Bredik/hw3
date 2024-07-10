@@ -15,22 +15,18 @@ public class WikiClient {
     public Set<String> getByTitle(String title) throws IOException {
         Set<String> links = new HashSet<>();
         String url = EN_WIKI_URL + title;
-        try {
-            Document page = Jsoup.connect(url).followRedirects(true).get();
-            for (Element element : page.body().select("a")) {
 
-                if (element.hasAttr("href")) {
-                    String href = element.attr("href");
-                    if (href.startsWith(WIKI) && !element.text().isEmpty() && !href.contains(":")) {
-                        links.add(href.substring(WIKI.length()));
-                    }
+        Document page = Jsoup.connect(url).followRedirects(true).get();
+        for (Element element : page.body().select("a")) {
+
+            if (element.hasAttr("href")) {
+                String href = element.attr("href");
+                if (href.startsWith(WIKI) && !element.text().isEmpty() && !href.contains(":")) {
+                    links.add(href.substring(WIKI.length()));
                 }
             }
-        } catch (Exception e) {
-            System.out.println(title + " got error: " + e.getMessage());
         }
         return links;
     }
-
 }
 
